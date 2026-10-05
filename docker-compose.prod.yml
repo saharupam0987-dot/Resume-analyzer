@@ -1,0 +1,184 @@
+# =============================================================================
+# Production Docker Compose Architecture
+# 1. frontend: React/Vite production build served by Nginx SPA
+# 2. nginx: Reverse proxy gateway (ports 80) routing to frontend & FastAPI
+# 3. fastapi: Core REST API backend
+# 4. celery: Asynchronous task worker for AI exam generation & PDF processing
+# 5. redis: In-memory broker & result backend
+# 6. postgresql: Relational database with persistent storage
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. PostgreSQL Relational Database
+  # ---------------------------------------------------------------------------
+  postgresql:
+    image: postgres:15-alpine
+    container_name: eval_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-eval_app_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-eval_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eval_secure_password_123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - eval_network
+    # Note: Ports are NOT exposed to the host for production security
+
+  # ---------------------------------------------------------------------------
+  # 2. Redis In-Memory Message Broker & Result Store
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: eval_redis_prod
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - eval_network
+    # Note: Ports are NOT exposed to the host for production security
+
+  # ---------------------------------------------------------------------------
+  # 3. FastAPI Core Backend Service
+  # ---------------------------------------------------------------------------
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eval_fastapi
+    restart: unless-stopped
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 2
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-eval_user}:${POSTGRES_PASSWORD:-eval_secure_password_123}@postgresql:5432/${POSTGRES_DB:-eval_app_prod}
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-super-secret-key-change-in-production-123456}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      STORAGE_DIR: /app/uploads
+    volumes:
+      - uploads_data:/app/uploads
+      - chroma_data:/app/chroma_db
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - eval_network
+
+  # ---------------------------------------------------------------------------
+  # 4. Celery Worker (Asynchronous Task Processing)
+  # ---------------------------------------------------------------------------
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eval_celery_worker
+    restart: unless-stopped
+    command: celery -A tasks.celery_app worker --loglevel=info -c 2
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-eval_user}:${POSTGRES_PASSWORD:-eval_secure_password_123}@postgresql:5432/${POSTGRES_DB:-eval_app_prod}
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-super-secret-key-change-in-production-123456}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      STORAGE_DIR: /app/uploads
+    volumes:
+      - uploads_data:/app/uploads
+      - chroma_data:/app/chroma_db
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -b $$REDIS_URL inspect ping -d celery@$$HOSTNAME || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - eval_network
+
+  # ---------------------------------------------------------------------------
+  # 5. Frontend (Compiled React/Vite SPA Container)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-}
+    container_name: eval_frontend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - eval_network
+
+  # ---------------------------------------------------------------------------
+  # 6. Nginx Public Gateway & Reverse Proxy
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: eval_nginx
+    restart: unless-stopped
+    ports:
+      - "${PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+      fastapi:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/nginx-health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - eval_network
+
+# -----------------------------------------------------------------------------
+# Persistent Volumes
+# -----------------------------------------------------------------------------
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads_data:
+    driver: local
+  chroma_data:
+    driver: local
+
+# -----------------------------------------------------------------------------
+# Isolated Production Bridge Network
+# -----------------------------------------------------------------------------
+networks:
+  eval_network:
+    driver: bridge

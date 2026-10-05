@@ -1,0 +1,153 @@
+================================================================================
+       STUDENT-TEACHER EVALUATION SYSTEM — PROJECT IDEAS & FEATURE LIST
+================================================================================
+
+Date: 2026-02-22
+Status: Planning Phase
+
+================================================================================
+1. CORE REQUIREMENTS (From User)
+================================================================================
+
+A) TEACHER SIDE
+   - Upload one or multiple PDFs (course material, textbooks, notes)
+   - Set total marks for the exam
+   - Set weightage per topic (e.g., Chapter 1 = 30%, Chapter 2 = 20%)
+   - Specify question distribution:
+       * Number of MCQ questions
+       * Number of Fill-in-the-Blanks questions
+       * Number of Subjective/Descriptive questions
+   - System auto-generates a question paper from uploaded content
+   - Evaluate student answer sheets
+   - Set evaluation strictness: Easy / Medium / Hard
+   - Assign final marks to students
+
+B) STUDENT SIDE
+   - Separate registration/login
+   - Submit answer sheets (text-based or PDF upload)
+   - View marks and feedback after evaluation
+
+C) TECH STACK
+   - Python (backend)
+   - Streamlit (frontend UI)
+   - LLM (question generation + answer evaluation)
+   - RAG (Retrieval-Augmented Generation) for context-aware generation
+   - Similarity Search (vector-based answer matching)
+
+================================================================================
+2. ADDITIONAL IDEAS & ENHANCEMENTS (Suggested)
+================================================================================
+
+A) SMART QUESTION GENERATION
+   - Bloom's Taxonomy tagging: Tag each question with cognitive level
+     (Remember, Understand, Apply, Analyze, Evaluate, Create)
+   - Difficulty level per question (Easy / Medium / Hard)
+   - Duplicate detection: Ensure no repeated/similar questions
+   - Answer key auto-generation: Generate model answers alongside questions
+   - Distractor generation for MCQs: LLM generates plausible wrong options
+
+B) ADVANCED EVALUATION
+   - Rubric-based grading: Teacher defines rubric, LLM follows it
+   - Partial marking: Award partial credit for subjective answers
+   - Keyword matching + Semantic similarity (hybrid scoring)
+   - Confidence score: Show how confident the system is in its grading
+   - Detailed feedback generation: Per-question feedback for students
+
+C) ANALYTICS & REPORTING
+   - Class performance dashboard (avg scores, pass %, topic-wise analysis)
+   - Per-student performance report
+   - Question difficulty analysis (post-exam: which questions were hard)
+   - Export results as CSV/PDF
+
+D) QUESTION BANK
+   - Save generated questions to a reusable question bank
+   - Tag questions by topic, difficulty, type
+   - Teachers can review/edit/approve questions before finalizing
+
+E) SECURITY & INTEGRITY
+   - Plagiarism detection between student answers (cosine similarity)
+   - Time-stamped submissions
+   - Role-based access (teacher vs student)
+
+F) QUALITY OF LIFE
+   - Multi-format PDF support (scanned PDFs via OCR using Tesseract)
+   - Bulk student upload via CSV
+   - Email notifications for results (optional)
+   - Session management for exams
+
+================================================================================
+3. PROPOSED TECH STACK (Detailed)
+================================================================================
+
+Layer               | Technology
+--------------------|-------------------------------------------
+Frontend            | Streamlit
+Backend/Logic       | Python
+LLM                 | OpenAI GPT-4 / Google Gemini / Ollama (local)
+Embeddings          | sentence-transformers / OpenAI embeddings
+Vector Store        | ChromaDB (lightweight, local) or FAISS
+PDF Parsing         | PyPDF2 + pdfplumber (text) / Tesseract (OCR)
+RAG Framework       | LangChain
+Database            | SQLite (simple) or PostgreSQL (production)
+Auth                | Streamlit-authenticator or custom session
+Export              | ReportLab (PDF) / pandas (CSV)
+
+================================================================================
+4. HIGH-LEVEL ARCHITECTURE
+================================================================================
+
+  [Teacher uploads PDFs]
+         |
+         v
+  [PDF Parser] --> [Text Chunks] --> [Embedding Model] --> [Vector Store]
+                                                               |
+  [Teacher sets exam config] ----------------------------------|
+         |                                                     |
+         v                                                     v
+  [RAG Pipeline] --> [LLM generates questions] --> [Question Paper]
+                                                       |
+                                    [Answer Key generated simultaneously]
+                                                       |
+         ..............................................|
+         |
+  [Student submits answers]
+         |
+         v
+  [Answer Evaluation Pipeline]
+      |         |           |
+    [MCQ]   [Fill-Blanks]  [Subjective]
+   exact     keyword +      semantic similarity
+   match     fuzzy match    + LLM rubric eval
+      |         |           |
+      v         v           v
+  [Marks Aggregation] --> [Feedback Generation] --> [Final Report]
+
+================================================================================
+5. MVP SCOPE (Phase 1 — Build This First)
+================================================================================
+
+  [x] Teacher registration & login
+  [x] Student registration & login
+  [x] PDF upload and text extraction
+  [x] Text chunking + vector embedding + storage (RAG)
+  [x] Question paper generation (MCQ + Fill-Blanks + Subjective)
+  [x] Student answer submission
+  [x] Automated evaluation with 3 strictness levels
+  [x] Marks display with per-question feedback
+
+================================================================================
+6. FUTURE SCOPE (Phase 2+)
+================================================================================
+
+  [ ] Bloom's taxonomy tagging
+  [ ] Question bank with CRUD
+  [ ] Class analytics dashboard
+  [ ] Plagiarism detection
+  [ ] OCR for scanned PDFs
+  [ ] Bulk operations
+  [ ] Email notifications
+  [ ] Export reports as PDF
+
+================================================================================
+END OF IDEAS DOCUMENT
+================================================================================

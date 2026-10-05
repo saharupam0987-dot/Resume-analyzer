@@ -1,0 +1,26 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+venv/
+.venv/
+chroma_db/
+database/evaluation.db
+*.db
+evaluation.tar
+
+# Frontend dependencies and builds
+node_modules/
+dist/
+frontend/node_modules/
+frontend/dist/
+.vite/
+*.log
+uploads/
+scratch/
+tests/*.db
+redis_bin/
+*.rdb
+
+
